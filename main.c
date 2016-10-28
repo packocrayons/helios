@@ -40,19 +40,26 @@ void taskScheduler(/*TaskSchedulerJob t*/){
 		getLastElement(readyListHead)->next = currentProcess; //put the current process at the end of the readyList
 	}//otherwise the process has already put itself at the end of the wait list, we can use the processer as we want
 	currentProcess = readyListHead; //the first thing we always do is dispatch a process to the processor
-	PCB* toFree = readyListHead;
 	readyListHead = readyListHead->next; //the process we put in the processor is no longer in the readyList
-	free(toFree); //free the one at the beginning, it's in currentProcess now
 }
 
-void IOMachine(int IOTime, PCB* putThisInWaitList){
-	//somehow have to wait and then put putThisInWaitList in the waitingList after a set period of time. Ideally a fork with shared memory, however that makes things much much much more complicated	
+void IOMachine(int IOTime, PCB* putThisInReadyList){
+	//somehow have to wait and then put putThisInReadyList in the readyList after a set period of time. Ideally a fork with shared memory, however that makes things much much much more complicated	
+	if (fork() == 0){
+		/*I'm still struggling to figure out how we're going to do this. sharing the entire waitingListHead linked list is inefficient and very error prone
+		The other option is to let the task scheduler handle everything and just expire after a certain timeout. I think there's a way to check if a child died, so that would be a good indicator to put something in the ready list
+		*/
+	}
+	return;
 }
 
 int main(int argc, char const *argv[])
 {
 	/*Start of a line-by-line file read loop*/
 	/*Read each processes process control block (PCB) and put it into an array (or linked list) of PCB's.*/
+	/*NOTE - if we have to use shared memory. This should be the only place that malloc or shmget has to be used. No new elements are ever created in the rest of the code, pointers are exchanged between lists.
+	Freeing the memory is another story but in theory that only happens once in the task scheduler.*/
+
 	char str[5]; //= However we get a list of parameters (looks like probably files read line by line)
 	char* tableEntries[5]; //array of strings
 	tableEntries[0] = strtok(str, " "); //split it at the first space

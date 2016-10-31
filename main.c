@@ -1,6 +1,11 @@
+#define READYLISTSIZE 40
+#define WAITINGLISTSIZE 40
+
 #include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
+
+
 
 /*There are two options - I'm not sure which one we should pursue, both seem to involve some string manipulation
 The program needs to receive argument lists that contain:
@@ -13,7 +18,7 @@ The assignment tends to reference an input file so I guess that's the best way.
 
 typedef struct PCB{
 	int PID, ArrivalTime, requiredCPU, IOFrequency, IODuration;
-	PCB* next; //for linked list - could make another wrapper struct with just a PCB and a head, may do that later
+	// PCB* next; //for linked list - could make another wrapper struct with just a PCB and a head, may do that later
 } PCB;
 
 // enum TaskSchedulerJob{  This might be used later
@@ -22,34 +27,41 @@ typedef struct PCB{
 // }
 
 
-PCB* getLastElement(PCB* list){
-	for (/*list*/; list->next != NULL; list = list->next); //walk the list until next is null and then return
-	return list;
-}
+// PCB* getLastElement(PCB* list){
+// 	for (/*list*/; list->next != NULL; list = list->next); //walk the list until next is null and then return
+// 	return list;
+// }
 
 
 /*These are global variables that contain the readyList and waitingList.
 These are global so that the taskScheduler can access them easily. They could be passed as references to the taskScheduler, however that involves stacking pointers
 which wastes CPU time since nothing is using the CPU while we wait for those parameters to be stacked.
 */
-PCB* readyListHead, waitingListHead; //newListHead, terminatedListHead; //Aren't needed right now - new goes straight to ready and terminated dies immediately
+//newListHead, terminatedListHead aren't needed right now - new goes straight to ready and terminated dies immediately
+PCB* readyList[READYLISTSIZE]; //this has to be shared
+int numberOfProcessesInReadyList = 0; //this has to be shared
+PCB* waitingList[WAITINGLISTSIZE]; //this has to be shared
+int numberOfProcessesInWaitingList = 0; //this has to be shared
+
 PCB* currentProcess; //this is equivalent to "the processor"
 
 void taskScheduler(/*TaskSchedulerJob t*/){
 	if(currentProcess != NULL){ //If there was a process in the processor - this means we're kicking it out, so we have to save it's PCB at the end of the list
-		getLastElement(readyListHead)->next = currentProcess; //put the current process at the end of the readyList
+		if (numberOfProcessesInReadyList < READYLISTSIZE){ //put the current process at the end of the readyList
+			readyList[numberOfProcessesInReadyList++] = currentProcess;
+		}
 	}//otherwise the process has already put itself at the end of the wait list, we can use the processer as we want
-	currentProcess = readyListHead; //the first thing we always do is dispatch a process to the processor
-	readyListHead = readyListHead->next; //the process we put in the processor is no longer in the readyList
+	currentProcess = readyList[0]; //the first thing we always do is dispatch a process to the processor
+	 //the process we put in the processor is no longer in the readyList
 }
 
 void IOMachine(int IOTime, PCB* putThisInReadyList){
 	//somehow have to wait and then put putThisInReadyList in the readyList after a set period of time. Ideally a fork with shared memory, however that makes things much much much more complicated	
-	if (fork() == 0){
-		/*I'm still struggling to figure out how we're going to do this. sharing the entire waitingListHead linked list is inefficient and very error prone
-		The other option is to let the task scheduler handle everything and just expire after a certain timeout. I think there's a way to check if a child died, so that would be a good indicator to put something in the ready list
-		*/
-	}
+	// if (fork() == 0){
+	// 	I'm still struggling to figure out how we're going to do this. sharing the entire waitingListHead linked list is inefficient and very error prone
+	// 	The other option is to let the task scheduler handle everything and just expire after a certain timeout. I think there's a way to check if a child died, so that would be a good indicator to put something in the ready list
+		
+	// }
 	return;
 }
 
@@ -94,5 +106,5 @@ int main(int argc, char const *argv[])
 			taskScheduler(); //put something new in the processor
 		}
 	}
-	|return 0;
+	return 0;
 }

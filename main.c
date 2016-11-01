@@ -4,6 +4,7 @@
 #include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 
 
@@ -17,7 +18,7 @@ The assignment tends to reference an input file so I guess that's the best way.
 */
 
 typedef struct PCB{
-	int PID, ArrivalTime, requiredCPU, IOFrequency, IODuration;
+	int PID, ArrivalTime, requiredCPUTime, IOFrequency, IODuration;
 	// PCB* next; //for linked list - could make another wrapper struct with just a PCB and a head, may do that later
 } PCB;
 
@@ -31,6 +32,8 @@ typedef struct PCB{
 // 	for (/*list*/; list->next != NULL; list = list->next); //walk the list until next is null and then return
 // 	return list;
 // }
+
+
 
 
 /*These are global variables that contain the readyList and waitingList.
@@ -55,18 +58,37 @@ void taskScheduler(/*TaskSchedulerJob t*/){
 	 //the process we put in the processor is no longer in the readyList
 }
 
-void IOMachine(int IOTime, PCB* putThisInReadyList){
-	//somehow have to wait and then put putThisInReadyList in the readyList after a set period of time. Ideally a fork with shared memory, however that makes things much much much more complicated	
+void addToWaitList(PCB* putThisInWaitList){
+
+	int i;
+	for (i = 0; waitingList[i] != NULL && i < WAITINGLISTSIZE; ++i);
+	if (i == WAITINGLISTSIZE - 1) return; //if the waiting list is full, this process doesn't get to be in the waiting list, it dies (for now, in the future we may do something about it)
+	
+	waitingList[i] = putThisInWaitList;
+
+	/*DEPRECATED
+	//somehow have to wait and then put putThisInWaitList in the readyList after a set period of time. Ideally a fork with shared memory, however that makes things much much much more complicated	
 	// if (fork() == 0){
 	// 	I'm still struggling to figure out how we're going to do this. sharing the entire waitingListHead linked list is inefficient and very error prone
 	// 	The other option is to let the task scheduler handle everything and just expire after a certain timeout. I think there's a way to check if a child died, so that would be a good indicator to put something in the ready list
 		
-	// }
+	// }*/
 	return;
 }
 
 int main(int argc, char const *argv[])
 {
+
+	//these inits are done so that we can search the lists and add to the end of them
+	for (int i = 0; i < READYLISTSIZE; ++i){
+		readyList[i] = NULL;
+	}
+
+	for (int i = 0; i < WAITINGLISTSIZE; ++i)
+	{
+		waitingList[i] = NULL;
+	}
+
 	/*Start of a line-by-line file read loop*/
 	/*Read each processes process control block (PCB) and put it into an array (or linked list) of PCB's.*/
 	/*NOTE - if we have to use shared memory. This should be the only place that malloc or shmget has to be used. No new elements are ever created in the rest of the code, pointers are exchanged between lists.
@@ -92,19 +114,30 @@ int main(int argc, char const *argv[])
 	
 	/*End of a line-by-line file read loop*/
 
+	struct timespec t;
 
-	int lastTime; //=get current time
+	long lastTime; //=get current time
+	long curTime;
 	while(1){ //always
-		int curTime;//= get_current_time (can't quite figure out how to do this) 
+		timespec_get(&t, TIME_UTC);
+		curTime = (t.tv_nsec/1000);//= get_current_time in microseconds
+
+
 		if (curTime - lastTime > 1000) { //1000uSec = 1 millisecond per process maximum
 			lastTime = curTime;
 			taskScheduler(); //kick it by calling the taskscheduler - it handles kicking the process
 		}
 		if ((currentProcess->requiredCPU /*- current time*/) % currentProcess->IOFrequency == 0){ //IF it's time to do IO - this will run indefinitely until - currentTime is added
-			IOMachine(currentProcess->IODuration, currentProcess); //the IOMachine (if implementation as desired is possible) will put the process in the wait list after the IO is completed
+			addToWaitList(currentProcess); //this adds the current process to the wait listand starts counting down it's IO time
 			currentProcess=NULL; //there's another existing pointer to this (in the stack frame for IOMachine - to be in waitingList)
 			taskScheduler(); //put something new in the processor
 		}
+
+		for (int i = 0; (i < WAITINGLISTSIZE) && (waitingList[i] != NULL); ++i) //loop through the waiting list and take away from IOTIME, put back in readylist if applicable
+		{
+			/* code */
+		}
+
 	}
 	return 0;
 }
